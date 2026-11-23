@@ -1,0 +1,5 @@
+import { useState } from 'react';
+import { Cpu, ChevronRight } from 'lucide-react';
+import { byId, machines } from '../data';
+import { Pill, Title } from '../components/ui';
+export function Devices({select}:{select:(id:string)=>void}) {const [filter,setFilter]=useState('All');return <><Title kicker="ASSET MONITORING" title="Devices" description="Monitor connected equipment and open its sensors or twin."/><div className="segmented">{['All','Healthy','Warning'].map(x=><button key={x} className={filter===x?'on':''} onClick={()=>setFilter(x)}>{x}</button>)}</div><div className="device-grid">{machines.filter(m=>filter==='All'||m.health===filter).map(m=><button className="card device-card" key={m.id} onClick={()=>select(m.id)}><div className="device-icon"><Cpu size={23}/></div><div><div className="device-heading"><strong>{m.name}</strong><Pill value={m.health}/></div><p>{byId(m.parent||'')?.name} · {m.children?.length||0} connected points</p><div className="device-meta"><span>Last seen: just now</span><span>View asset <ChevronRight size={14}/></span></div></div></button>)}</div></>}
