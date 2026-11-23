@@ -67,7 +67,7 @@ The left hierarchy is the primary asset selector. Preserve its compact indentati
 
 Check it in both themes at mobile, laptop, and desktop widths. Confirm navigation and selection lead to the right asset, active states do not shift layout, text does not overflow, and `npm run build` passes.
 
-The current topic add flow keeps added topics in memory for the session. Live MQTT data and persisted configuration can replace the sample data layer later without changing these visual rules.
+Model definitions and locally created hierarchy nodes currently use browser storage through mock services. Live MQTT data and backend persistence can replace this layer later without changing these visual rules.
 
 ## Feature Lab
 
@@ -88,9 +88,17 @@ Clicking a mesh shows a contextual **Whole model** button at the top of the view
 When whole models are selected, show **Reset transform** beside the viewport controls. It restores rotation to `[0, 0, 0]` and scale to `[1, 1, 1]`, then arranges the selected models around the world origin with enough spacing for their normalized bounds. If another model occupies that area, use the nearest clear placement. Persist each record after reset.
 The editor uses its own width for responsive breakpoints because the plant hierarchy reduces the available workspace on laptops. On narrow screens, keep 3D/Graph and Reset in the first row, wrap the Models/Scene/transform/Details toolbar below, and keep Models and Scene as scrollable overlays. Model properties start closed and open through Details or model selection; on phones they become a dismissible bottom sheet. Keep the canvas visible and avoid horizontal scrolling at 375, 768, and desktop widths.
 
-## Asset and sensor management
+## Asset models and hierarchy
 
-`src/components/Sidebar.tsx` owns the tree and add menu. `src/screens/AssetManagement/AssetWorkspace.tsx` owns the management page, with `AssetForm.tsx` and `AssetContext.tsx` as its two children. Their styles live in `assetManagement.css`; use the shared `--surface`, `--text`, `--muted`, `--border`, and green tokens for both themes. The Health tab keeps the existing predictive maintenance detail screen.
+Configuration → Asset Models is the single library for equipment schemas. Keep saved versions read-only. A new version copies the selected schema and increments its version; existing assets remain pinned to the version used at creation. Block deletion while any asset or generated sensor references that version. Use the compact list and form styles in `src/screens/AssetManagement/assetModels.css` and the shared theme tokens.
 
-Show the ISA-95 path as Enterprise → Site → Area → Work Center → Asset → Component or Sensor. Use an icon and health dot for each tree row. The + menu lists existing enterprises and offers Enterprise, Site, Area, Work Center, Asset, Component, Sensor, and the existing MQTT topic subscription flow. Clicking a row opens its configuration; adding a sensor shows identity, metric, unit, topic, QoS, payload format, direction, context, linked sensors, and a live hierarchy preview. Keep phone forms in one column and let breadcrumbs and hierarchy chips scroll horizontally. New and edited hierarchy nodes currently live in the app's in-memory data layer for the session.
-Use subtle dotted green vertical guides and short dotted connectors for each tree depth. Brighten the dotted route from the selected node through its parents; keep other branches muted. Health is the first, default view; opening an add flow shows Manage. In Manage, show Asset Context, Sensors, and Topic Preview together as compact right-side sections, matching the reference's scan order. Limit the sensor list height and scroll it when needed so the three sections remain visible on a typical laptop screen.
+An Asset Model has an immutable name and sensor definitions only. The preset chips cover common industrial and mining sensors, support multiple types, and supply default units. Draft rows can be duplicated, assigned number/string data types, or given another unit. MQTT topics and sensor mounting locations belong to asset instances, never to reusable models.
+
+The left hierarchy add menu offers Enterprise, Site, Area, Work Center, and Asset. Add Asset opens `ModelAssetForm.tsx`: the hierarchy parent is inferred from the selected left-tree node, as in the original form. It shows Name, a unique immutable Asset ID, Parent, and Model type at the top, then an MQTT topic and optional mounting-location dropdown for every model sensor. The parent defaults from the selected left-tree node. Saving creates the asset and its sensor children together. Generated sensors remain selectable for Health, while Manage points to the parent asset for topic changes. Existing legacy nodes remain readable and editable through `AssetForm.tsx`.
+
+`src/services/assetModelService.ts` is the mock API boundary for model list/create/delete and model-based asset save. Model definitions and locally created hierarchy nodes use browser storage for now; replace the service calls and storage adapter with backend APIs later. Keep model IDs and measurement keys stable, validate duplicate MQTT topics, and never reset live sensor state when an asset's metadata is edited.
+
+The tree and existing sensor Health screens use the shared asset nodes. Keep ISA-95 order, muted dotted guides, responsive one-column forms on mobile, and the existing dark/light theme variables.
+
+
+

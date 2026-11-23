@@ -1,5 +1,5 @@
 export type Health = 'Healthy' | 'Warning' | 'Critical';
-export type Asset = { id: string; name: string; type: string; parent?: string; health: Health; topic?: string; value?: string; unit?: string; children?: string[]; code?: string; description?: string; sensorType?: string; metric?: string; qos?: number; payloadFormat?: string; direction?: string; aiEnabled?: boolean };
+export type Asset = { id: string; name: string; type: string; parent?: string; health: Health; topic?: string; value?: string; unit?: string; children?: string[]; code?: string; description?: string; sensorType?: string; metric?: string; qos?: number; payloadFormat?: string; direction?: string; aiEnabled?: boolean; modelId?: string; measurementKey?: string; attributeValues?: Record<string,string>; createdLocally?: boolean; manufacturer?: string; serialNumber?: string; modelNumber?: string; installedAt?: string; sensorLocation?: string; dataType?: string };
 export const assets: Asset[] = [
   {id:'plant',name:'NMDC',type:'Plant',health:'Healthy',children:['site','bacheli','donimalai','kumaraswamy']},
   {id:'site',name:'Kirandul',type:'Site',parent:'plant',health:'Healthy',children:['mining','production','screening','beneficiation']},
@@ -20,7 +20,14 @@ export const assets: Asset[] = [
   {id:'donimalai',name:'Donimalai',type:'Site',parent:'plant',health:'Healthy'},
   {id:'kumaraswamy',name:'Kumaraswamy',type:'Site',parent:'plant',health:'Healthy'}
 ];
-export const byId = (id: string) => assets.find(a => a.id === id);
+const modelAssetsStorageKey='predictaline.modelAssets.v1';
+try{
+  const saved=typeof localStorage==='undefined'?null:localStorage.getItem(modelAssetsStorageKey);
+  const restored=saved?JSON.parse(saved) as Asset[]:[];
+  for(const node of restored)if(!assets.some(existing=>existing.id===node.id))assets.push(node);
+  for(const node of restored){const parent=node.parent?assets.find(item=>item.id===node.parent):undefined;if(parent&&!parent.children?.includes(node.id))parent.children=[...(parent.children||[]),node.id]}
+}catch{/* Keep demo hierarchy when storage is unavailable. */}
+export function persistModelAssets(){try{localStorage.setItem(modelAssetsStorageKey,JSON.stringify(assets.filter(asset=>asset.modelId||asset.createdLocally)))}catch{/* Demo data still works in memory. */}}export const byId = (id: string) => assets.find(a => a.id === id);
 export type HierarchyKind = 'Enterprise'|'Site'|'Area'|'Work Center'|'Asset'|'Component'|'Sensor';
 export const kindOf = (asset:Asset):HierarchyKind|'Enterprise' => asset.type==='Plant'?'Enterprise':asset.type==='Line'?'Work Center':asset.type==='Machine'?'Asset':asset.type as HierarchyKind;
 export const parentTypes:Record<HierarchyKind,string[]> = {Enterprise:[],Site:['Plant'],Area:['Site'], 'Work Center':['Area'],Asset:['Line','Area'],Component:['Machine','Component'],Sensor:['Machine','Component']};
@@ -29,8 +36,8 @@ export const assetPath = (asset:Asset):Asset[] => {const path:Asset[]=[];let nod
 export function addHierarchyAsset(details:Omit<Asset,'id'|'health'|'children'>):Asset {
   const parent=details.parent?byId(details.parent):undefined;
   if(!parent&&details.type!=='Plant')throw new Error('Choose a parent asset.');
-  const asset:Asset={...details,id:globalThis.crypto?.randomUUID?.()||`asset-${Date.now()}`,health:'Healthy',children:[]};
-  assets.push(asset);if(parent)parent.children=[...(parent.children||[]),asset.id];return asset;
+  const asset:Asset={...details,id:globalThis.crypto?.randomUUID?.()||`asset-${Date.now()}`,health:'Healthy',children:[],createdLocally:true};
+  assets.push(asset);if(parent)parent.children=[...(parent.children||[]),asset.id];persistModelAssets();return asset;
 }
 export function updateHierarchyAsset(id:string,change:Partial<Asset>):Asset {
   const asset=byId(id);if(!asset)throw new Error('Asset not found.');
@@ -40,7 +47,7 @@ export function updateHierarchyAsset(id:string,change:Partial<Asset>):Asset {
     if(previous)previous.children=(previous.children||[]).filter(child=>child!==id);
     parent.children=[...(parent.children||[]),id];
   }
-  Object.assign(asset,change);return asset;
+  Object.assign(asset,change);if(asset.modelId||asset.createdLocally)persistModelAssets();return asset;
 }
 export function deleteHierarchyAsset(id:string):{nextId:string;count:number} {
   const asset=byId(id);if(!asset)throw new Error('Asset not found.');
@@ -52,7 +59,7 @@ export function deleteHierarchyAsset(id:string):{nextId:string;count:number} {
   if(parent)parent.children=(parent.children||[]).filter(childId=>childId!==id);
   for(const list of [assets,sensors,machines])for(let index=list.length-1;index>=0;index--)if(ids.has(list[index].id))list.splice(index,1);
   for(let index=alerts.length-1;index>=0;index--)if(ids.has(alerts[index].assetId))alerts.splice(index,1);
-  return {nextId:parent?.id||assets.find(a=>a.type==='Plant'&&!a.parent)?.id||'',count:ids.size};
+  persistModelAssets();return {nextId:parent?.id||assets.find(a=>a.type==='Plant'&&!a.parent)?.id||'',count:ids.size};
 }
 export const sensors = assets.filter(a => a.type === 'Sensor');
 export const machines = assets.filter(a => a.type === 'Machine' || a.id === 'motor');
@@ -74,4 +81,7 @@ export function addTopic(path: string): Asset {
   parent.children = [...(parent.children || []), asset.id];
   return asset;
 }
+
+
+
 
